@@ -43,9 +43,8 @@ export default class Dropdown extends React.Component {
     };
 
     hide = e => {
-        // Do not hide the dropdown if there was a click within it.
         const inside_dropdown = !!findParent(e.target, 'dropdown__content');
-        if (inside_dropdown) return;
+        if (inside_dropdown && e.target.className !== 'close-button') return;
         e.preventDefault();
         this.setState({ shown: false });
         this.props.onHide();

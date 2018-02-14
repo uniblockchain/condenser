@@ -15,6 +15,7 @@ import {
 import DropdownMenu from 'app/components/elements/DropdownMenu';
 import TimeAgoWrapper from 'app/components/elements/TimeAgoWrapper';
 import Dropdown from 'app/components/elements/Dropdown';
+import CloseButton from 'app/components/elements/CloseButton';
 
 const ABOUT_FLAG = (
     <div>
@@ -35,7 +36,9 @@ const ABOUT_FLAG = (
 );
 
 const MAX_VOTES_DISPLAY = 20;
-const VOTE_WEIGHT_DROPDOWN_THRESHOLD = 1.0 * 1000.0 * 1000.0;
+//const VOTE_WEIGHT_DROPDOWN_THRESHOLD = 1.0 * 1000.0 * 1000.0;
+const VOTE_WEIGHT_DROPDOWN_THRESHOLD = 1;
+
 class Voting extends React.Component {
     static propTypes = {
         // HTML properties
@@ -455,6 +458,8 @@ class Voting extends React.Component {
                             step={100}
                             value={weight}
                             onChange={updateWeight}
+                        />
+                        <CloseButton
                         />
                     </div>
                 </Dropdown>
