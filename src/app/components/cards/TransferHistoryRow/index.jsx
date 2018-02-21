@@ -36,7 +36,7 @@ class TransferHistoryRow extends React.Component {
             if (data.from === context) {
                 if (data.to === '') {
                     message = tt(
-                        'transfer_history_row.transfer_to_vesting.from_self.no_to',
+                        'transferhistoryrow_jsx.transfer_to_vesting.from_self.no_to',
                         { amount }
                     );
                     // tt('g.transfer') + amount + tt('g.to') + 'STEEM POWER';
@@ -44,7 +44,7 @@ class TransferHistoryRow extends React.Component {
                     message = (
                         <span>
                             {tt(
-                                'transfer_history_row.transfer_to_vesting.from_self.to_someone',
+                                'transferhistoryrow_jsx.transfer_to_vesting.from_self.to_someone',
                                 { amount }
                             )}
                             {otherAccountLink(data.to)}
@@ -56,7 +56,7 @@ class TransferHistoryRow extends React.Component {
                 message = (
                     <span>
                         {tt(
-                            'transfer_history_row.transfer_to_vesting.to_self',
+                            'transferhistoryrow_jsx.transfer_to_vesting.to_self',
                             { amount }
                         )}
                         {otherAccountLink(data.from)}
@@ -67,7 +67,7 @@ class TransferHistoryRow extends React.Component {
                 message = (
                     <span>
                         {tt(
-                            'transfer_history_row.transfer_to_vesting.from_user_to_user',
+                            'transferhistoryrow_jsx.transfer_to_vesting.from_user_to_user',
                             {
                                 amount,
                                 from: data.from,
@@ -99,16 +99,16 @@ class TransferHistoryRow extends React.Component {
                     <span>
                         {tt(
                             [
-                                'transfer_history_row',
-                                'transfer_to_savings',
+                                'transferhistoryrow_jsx',
+                                'transfer',
                                 'from_self',
-                                type,
+                                fromWhere,
                             ],
                             { amount: data.amount }
                         )}
                         {otherAccountLink(data.to)}
                         {data.request_id &&
-                            tt('transfer_history_row.request_id', {
+                            tt('transferhistoryrow_jsx.request_id', {
                                 request_id: data.request_id,
                             })}
                     </span>
@@ -119,16 +119,16 @@ class TransferHistoryRow extends React.Component {
                     <span>
                         {tt(
                             [
-                                'transfer_history_row',
-                                'transfer_to_savings',
+                                'transferhistoryrow_jsx',
+                                'transfer',
                                 'to_self',
-                                type,
+                                fromWhere,
                             ],
                             { amount: data.amount }
                         )}
                         {otherAccountLink(data.from)}
                         {data.request_id &&
-                            tt('transfer_history_row.request_id', {
+                            tt('transferhistoryrow_jsx.request_id', {
                                 request_id: data.request_id,
                             })}
                     </span>
@@ -140,10 +140,10 @@ class TransferHistoryRow extends React.Component {
                     <span>
                         {tt(
                             [
-                                'transfer_history_row',
-                                'transfer_to_savings',
+                                'transferhistoryrow_jsx',
+                                'transfer',
                                 'to_someone_from_someone',
-                                type,
+                                fromWhere,
                             ],
                             {
                                 amount: data.amount,
@@ -152,9 +152,10 @@ class TransferHistoryRow extends React.Component {
                             }
                         )}
                         {data.request_id &&
-                            tt('transfer_history_row.request_id', {
-                                request_id: data.request_id,
-                            })}
+                            ' ' +
+                                tt('transferhistoryrow_jsx.request_id', {
+                                    request_id: data.request_id,
+                                })}
                     </span>
                 );
                 // tt('g.transfer') + `${fromWhere} ${data.amount}` + tt('g.from');
@@ -162,15 +163,18 @@ class TransferHistoryRow extends React.Component {
                 //description_end += tt('g.to') + data.to;
             }
         } else if (type === 'cancel_transfer_from_savings') {
-            message = tt('transfer_history_row.cancel_transfer_from_savings', {
-                request_id: data.request_id,
-            });
+            message = tt(
+                'transferhistoryrow_jsx.cancel_transfer_from_savings',
+                {
+                    request_id: data.request_id,
+                }
+            );
             // `${tt('transferhistoryrow_jsx.cancel_transfer_from_savings')} (${tt('g.request')} ${data.request_id})`;
         } else if (type === 'withdraw_vesting') {
             if (data.vesting_shares === '0.000000 VESTS')
                 message = tt('transferhistoryrow_jsx.stop_power_down');
             else
-                message = tt('transfer_history_row.withdraw_vesting', {
+                message = tt('transferhistoryrow_jsx.withdraw_vesting', {
                     powerdown_vests,
                 });
             // tt('transferhistoryrow_jsx.start_power_down_of') + ' ' + powerdown_vests + ' STEEM';
@@ -179,7 +183,7 @@ class TransferHistoryRow extends React.Component {
                 data.comment_author + '/' + data.comment_permlink;
             message = (
                 <span>
-                    {tt('transfer_history_row.curation_reward', {
+                    {tt('transferhistoryrow_jsx.curation_reward', {
                         curation_reward,
                     })}
                     {otherAccountLink(linkToComment)}
@@ -192,7 +196,7 @@ class TransferHistoryRow extends React.Component {
                 steem_payout = ', ' + data.steem_payout;
             message = (
                 <span>
-                    {tt('transfer_history_row.author_reward', {
+                    {tt('transferhistoryrow_jsx.author_reward', {
                         author_reward,
                         steem_payout,
                         sbd_payout: data.sbd_payout,
@@ -213,7 +217,7 @@ class TransferHistoryRow extends React.Component {
             switch (rewards.length) {
                 case 3:
                     message = tt(
-                        'transfer_history_row.claim_reward_balance.three_rewards',
+                        'transferhistoryrow_jsx.claim_reward_balance.three_rewards',
                         {
                             first_reward: rewards[0],
                             second_reward: rewards[1],
@@ -224,26 +228,26 @@ class TransferHistoryRow extends React.Component {
                     break;
                 case 2:
                     message = tt(
-                        'transfer_history_row.claim_reward_balance.two_rewards',
+                        'transferhistoryrow_jsx.claim_reward_balance.two_rewards',
                         { first_reward: rewards[0], second_reward: rewards[1] }
                     );
                     // `${rewards[0]} and ${rewards[1]}`;
                     break;
                 case 1:
                     message = tt(
-                        'transfer_history_row.claim_reward_balance.one_reward',
+                        'transferhistoryrow_jsx.claim_reward_balance.one_reward',
                         { reward: rewards[0] }
                     );
                     // `${rewards[0]}`;
                     break;
             }
         } else if (type === 'interest') {
-            message = tt('transfer_history_row.interest', {
+            message = tt('transferhistoryrow_jsx.interest', {
                 interest: data.interest,
             });
             // `${tt( 'transferhistoryrow_jsx.receive_interest_of' )} ${data.interest}`;
         } else if (type === 'fill_convert_request') {
-            message = tt('transfer_history_row.fill_convert_request', {
+            message = tt('transferhistoryrow_jsx.fill_convert_request', {
                 amount_in: data.amount_in,
                 amount_out: data.amount_out,
             });
@@ -252,7 +256,7 @@ class TransferHistoryRow extends React.Component {
             if (data.open_owner == context) {
                 // my order was filled by data.current_owner
                 message = tt(
-                    'transfer_history_row.fill_order.filled_by_current_owner',
+                    'transferhistoryrow_jsx.fill_order.filled_by_current_owner',
                     {
                         open_pays: data.open_pays,
                         current_pays: data.current_pays,
@@ -262,7 +266,7 @@ class TransferHistoryRow extends React.Component {
             } else {
                 // data.open_owner filled my order
                 message = tt(
-                    'transfer_history_row.fill_order.open_owner_filled_my_order',
+                    'transferhistoryrow_jsx.fill_order.open_owner_filled_my_order',
                     {
                         open_pays: data.open_pays,
                         current_pays: data.current_pays,
@@ -271,7 +275,7 @@ class TransferHistoryRow extends React.Component {
                 // `Paid ${data.current_pays} for ${ data.open_pays }`;
             }
         } else if (type === 'comment_benefactor_reward') {
-            message = tt('transfer_history_row.comment_benefactor_reward', {
+            message = tt('transferhistoryrow_jsx.comment_benefactor_reward', {
                 benefactor_reward,
                 author: data.author,
                 permlink: data.permlink,
