@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import { Component } from 'react';
 import Remarkable from 'remarkable';
@@ -27,17 +28,15 @@ const remarkableToSpec = new Remarkable({
 class MarkdownViewer extends Component {
     static propTypes = {
         // HTML properties
-        text: React.PropTypes.string,
-        className: React.PropTypes.string,
-        large: React.PropTypes.bool,
-        // formId: React.PropTypes.string, // This is unique for every editor of every post (including reply or edit)
-        canEdit: React.PropTypes.bool,
-        jsonMetadata: React.PropTypes.object,
-        highQualityPost: React.PropTypes.bool,
-        noImage: React.PropTypes.bool,
-        allowDangerousHTML: React.PropTypes.bool,
-        hideImages: React.PropTypes.bool, // whether to replace images with just a span containing the src url
-        breaks: React.PropTypes.bool, // true to use bastardized markdown that cares about newlines
+        text: PropTypes.string,
+        className: PropTypes.string,
+        large: PropTypes.bool,
+        jsonMetadata: PropTypes.object,
+        highQualityPost: PropTypes.bool,
+        noImage: PropTypes.bool,
+        allowDangerousHTML: PropTypes.bool,
+        hideImages: PropTypes.bool, // whether to replace images with just a span containing the src url
+        breaks: PropTypes.bool, // true to use bastardized markdown that cares about newlines
         // used for the ImageUserBlockList
     };
 
@@ -58,8 +57,6 @@ class MarkdownViewer extends Component {
         return (
             np.text !== this.props.text ||
             np.large !== this.props.large ||
-            // np.formId !== this.props.formId ||
-            np.canEdit !== this.props.canEdit ||
             ns.allowNoImage !== this.state.allowNoImage
         );
     }
@@ -75,7 +72,8 @@ class MarkdownViewer extends Component {
         if (!text) text = ''; // text can be empty, still view the link meta data
         const {
             large,
-            /*formId, canEdit, jsonMetadata,*/ highQualityPost,
+            highQualityPost,
+            //jsonMetadata,
         } = this.props;
 
         let html = false;
@@ -146,7 +144,7 @@ class MarkdownViewer extends Component {
         // HtmlReady inserts ~~~ embed:${id} type ~~~
         for (let section of cleanText.split('~~~ embed:')) {
             const match = section.match(
-                /^([A-Za-z0-9\_\-]+) (youtube|vimeo) ~~~/
+                /^([A-Za-z0-9\?\=\_\-]+) (youtube|vimeo|twitch) ~~~/
             );
             if (match && match.length >= 3) {
                 const id = match[1];
@@ -176,6 +174,20 @@ class MarkdownViewer extends Component {
                                 frameBorder="0"
                                 webkitallowfullscreen
                                 mozallowfullscreen
+                                allowFullScreen
+                            />
+                        </div>
+                    );
+                } else if (type === 'twitch') {
+                    const url = `https://player.twitch.tv/${id}`;
+                    sections.push(
+                        <div className="videoWrapper">
+                            <iframe
+                                key={idx++}
+                                src={url}
+                                width={w}
+                                height={h}
+                                frameBorder="0"
                                 allowFullScreen
                             />
                         </div>

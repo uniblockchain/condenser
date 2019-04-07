@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import ReactDOM from 'react-dom';
 import { connect } from 'react-redux';
 //import Highcharts from 'highcharts';
@@ -12,6 +13,7 @@ import TransactionError from 'app/components/elements/TransactionError';
 import DepthChart from 'app/components/elements/DepthChart';
 import Orderbook from 'app/components/elements/Orderbook';
 import OrderHistory from 'app/components/elements/OrderHistory';
+import GoogleAd from 'app/components/elements/GoogleAd';
 import { Order, TradeHistory } from 'app/utils/MarketClasses';
 import { roundUp, roundDown } from 'app/utils/MarketUtils';
 import tt from 'counterpart';
@@ -26,14 +28,14 @@ import {
 
 class Market extends React.Component {
     static propTypes = {
-        orderbook: React.PropTypes.object,
-        open_orders: React.PropTypes.array,
-        open_orders_sort: React.PropTypes.instanceOf(Map),
-        ticker: React.PropTypes.object,
+        orderbook: PropTypes.object,
+        open_orders: PropTypes.array,
+        open_orders_sort: PropTypes.instanceOf(Map),
+        ticker: PropTypes.object,
         // redux PropTypes
-        placeOrder: React.PropTypes.func.isRequired,
-        user: React.PropTypes.string,
-        feed: React.PropTypes.instanceOf(Map),
+        placeOrder: PropTypes.func.isRequired,
+        user: PropTypes.string,
+        feed: PropTypes.instanceOf(Map),
     };
 
     constructor(props) {
@@ -311,37 +313,6 @@ class Market extends React.Component {
         const orderbook = aggOrders(normalizeOrders(this.props.orderbook));
         const { open_orders, open_orders_sort } = this.props;
 
-        // ORDERBOOK TABLE GENERATOR
-        // function table(orderbook, side = 'bids', callback = ((price,steem,sbd) => {})) {
-        //
-        //     let rows = orderbook[side].slice(0, 25).map( (o,i) =>
-        //         <OrderbookRow side={side} onClick={e => {callback( o.price, o.steem_depth, o.sbd_depth) }} />
-        //     );
-        //
-        //     return
-        // }
-
-        function normalizeOpenOrders(open_orders) {
-            return open_orders.map(o => {
-                const type =
-                    o.sell_price.base.indexOf(LIQUID_TICKER) > 0
-                        ? 'ask'
-                        : 'bid';
-                //{orderid: o.orderid,
-                // created: o.created,
-                return {
-                    ...o,
-                    type: type,
-                    price: parseFloat(
-                        type == 'ask' ? o.real_price : o.real_price
-                    ),
-                    steem:
-                        type == 'ask' ? o.sell_price.base : o.sell_price.quote,
-                    sbd: type == 'bid' ? o.sell_price.base : o.sell_price.quote,
-                };
-            });
-        }
-
         // Logged-in user's open orders
         function open_orders_table(open_orders, open_orders_sort) {
             const rows =
@@ -407,11 +378,11 @@ class Market extends React.Component {
                             </th>
                             <th
                                 className={classNames(
-                                    activeClass('real_price'),
+                                    activeClass('price'),
                                     'sortable'
                                 )}
                                 onClick={e =>
-                                    handleToggleOpenOrdersSort('real_price')
+                                    handleToggleOpenOrdersSort('price')
                                 }
                             >
                                 {tt('g.price')}
@@ -955,6 +926,17 @@ class Market extends React.Component {
                         <h4>{tt('market_jsx.trade_history')}</h4>
                         {trade_history_table(this.props.history)}
                     </div>
+
+                    {this.props.shouldSeeAds && (
+                        <div className="small-12 large-12 column">
+                            <GoogleAd
+                                name="market-1"
+                                slot={this.props.adSlots['market_1'].slot_id}
+                                fullWidthResponsive="true"
+                                style={{ display: 'block' }}
+                            />
+                        </div>
+                    )}
                 </div>
 
                 {account && (
@@ -969,7 +951,7 @@ class Market extends React.Component {
         );
     }
 }
-const DEFAULT_EXPIRE = 0xffffffff; //Math.floor((Date.now() / 1000) + (60 * 60 * 24)) // 24 hours
+const DEFAULT_EXPIRE = Math.floor(Date.now() / 1000 + 60 * 60 * 24 * 27); // Market orders with expiration greater than 28 days from current Head Block time will be rejected.
 module.exports = {
     path: 'market',
     component: connect(
@@ -977,6 +959,8 @@ module.exports = {
             const username = state.user.get('current')
                 ? state.user.get('current').get('username')
                 : null;
+            const shouldSeeAds = state.app.getIn(['googleAds', 'shouldSeeAds']);
+            const adSlots = state.app.getIn(['googleAds', 'adSlots']).toJS();
             return {
                 orderbook: state.market.get('orderbook'),
                 open_orders: process.env.BROWSER
@@ -988,6 +972,8 @@ module.exports = {
                 user: username,
                 feed: state.global.get('feed_price'),
                 open_orders_sort: state.market.get('open_orders_sort'),
+                shouldSeeAds,
+                adSlots,
             };
         },
         dispatch => ({
@@ -1062,7 +1048,9 @@ module.exports = {
                           min_to_receive,
                           effectivePrice,
                       });
-                const successMessage = tt('g.order_placed') + ': ' + confirmStr;
+                const successMessage = tt('market_jsx.order_placed', {
+                    order: confirmStr,
+                });
                 const confirm = confirmStr + '?';
                 let warning = null;
                 if (priceWarning) {

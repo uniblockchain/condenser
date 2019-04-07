@@ -69,11 +69,11 @@ describe('htmlready', () => {
         const resDomainInpage = HtmlReady(domainInpage).html;
         expect(resDomainInpage).toEqual(cleanDomainInpage);
 
-        //misleading in-page links should also be caught
+        // anchor links including steemit.com should be allowed
         const inpage =
             '<xml xmlns="http://www.w3.org/1999/xhtml"><a href="#https://steamit.com/unlikelyinpagelink" xmlns="http://www.w3.org/1999/xhtml">Go down lower for https://steemit.com info!</a></xml>';
         const cleanInpage =
-            '<xml xmlns="http://www.w3.org/1999/xhtml"><div title="missing translation: en.g.phishy_message" class="phishy">Go down lower for https://steemit.com info! / #https://steamit.com/unlikelyinpagelink</div></xml>';
+            '<xml xmlns="http://www.w3.org/1999/xhtml"><a href="#https://steamit.com/unlikelyinpagelink" xmlns="http://www.w3.org/1999/xhtml">Go down lower for https://steemit.com info!</a></xml>';
         const resinpage = HtmlReady(inpage).html;
         expect(resinpage).toEqual(cleanInpage);
 
@@ -126,6 +126,87 @@ describe('htmlready', () => {
         const htmlified =
             '<xml xmlns="http://www.w3.org/1999/xhtml"><a href="https://steemit.com/signup">hi @hihi</a></xml>';
         const res = HtmlReady(nameinsidelinkmiddle).html;
+        expect(res).toEqual(htmlified);
+    });
+
+    it('should make relative links absolute with https by default', () => {
+        const noRelativeHttpHttpsOrSteem =
+            '<xml xmlns="http://www.w3.org/1999/xhtml"><a href="land.com"> zippy </a> </xml>';
+        const cleansedRelativeHttpHttpsOrSteem =
+            '<xml xmlns="http://www.w3.org/1999/xhtml"><a href="https://land.com"> zippy </a> </xml>';
+        const resNoRelativeHttpHttpsOrSteem = HtmlReady(
+            noRelativeHttpHttpsOrSteem
+        ).html;
+        expect(resNoRelativeHttpHttpsOrSteem).toEqual(
+            cleansedRelativeHttpHttpsOrSteem
+        );
+    });
+
+    it('should allow the steem uri scheme for vessel links', () => {
+        const noRelativeHttpHttpsOrSteem =
+            '<xml xmlns="http://www.w3.org/1999/xhtml"><a href="steem://veins.com"> arteries </a> </xml>';
+        const cleansedRelativeHttpHttpsOrSteem =
+            '<xml xmlns="http://www.w3.org/1999/xhtml"><a href="steem://veins.com"> arteries </a> </xml>';
+        const resNoRelativeHttpHttpsOrSteem = HtmlReady(
+            noRelativeHttpHttpsOrSteem
+        ).html;
+        expect(resNoRelativeHttpHttpsOrSteem).toEqual(
+            cleansedRelativeHttpHttpsOrSteem
+        );
+    });
+
+    it('should not mistake usernames in valid comment urls as mentions', () => {
+        const url =
+            'https://steemit.com/spam/@test-safari/34gfex-december-spam#@test-safari/re-test-safari-34gfex-december-spam-20180110t234627522z';
+        const prefix = '<xml xmlns="http://www.w3.org/1999/xhtml">';
+        const suffix = '</xml>';
+        const input = prefix + url + suffix;
+        const expected =
+            prefix +
+            '<span><a href="' +
+            url +
+            '">' +
+            url +
+            '</a></span>' +
+            suffix;
+        const result = HtmlReady(input).html;
+        expect(result).toEqual(expected);
+    });
+
+    it('should not modify text when mention contains invalid username', () => {
+        const body =
+            'valid mention match but invalid username..@usernamewaytoolong';
+        const prefix = '<xml xmlns="http://www.w3.org/1999/xhtml">';
+        const suffix = '</xml>';
+        const input = prefix + body + suffix;
+        const result = HtmlReady(input).html;
+        expect(result).toEqual(input);
+    });
+
+    it('should detect urls that are phishy', () => {
+        const dirty =
+            '<xml xmlns="http://www.w3.org/1999/xhtml"><a href="https://steewit.com/signup" xmlns="http://www.w3.org/1999/xhtml">https://steemit.com/signup</a></xml>';
+        const cleansed =
+            '<xml xmlns="http://www.w3.org/1999/xhtml"><div title="missing translation: en.g.phishy_message" class="phishy">https://steemit.com/signup / https://steewit.com/signup</div></xml>';
+        const res = HtmlReady(dirty).html;
+        expect(res).toEqual(cleansed);
+    });
+
+    it('should not omit text on same line as youtube link', () => {
+        const testString =
+            '<html><p>before text https://www.youtube.com/watch?v=NrS9vvNgx7I after text</p></html>';
+        const htmlified =
+            '<html xmlns="http://www.w3.org/1999/xhtml"><p>before text ~~~ embed:NrS9vvNgx7I youtube ~~~ after text</p></html>';
+        const res = HtmlReady(testString).html;
+        expect(res).toEqual(htmlified);
+    });
+
+    it('should not omit text on same line as vimeo link', () => {
+        const testString =
+            '<html><p>before text https://vimeo.com/193628816/ after text</p></html>';
+        const htmlified =
+            '<html xmlns="http://www.w3.org/1999/xhtml"><p>before text ~~~ embed:193628816 vimeo ~~~ after text</p></html>';
+        const res = HtmlReady(testString).html;
         expect(res).toEqual(htmlified);
     });
 });

@@ -1,4 +1,7 @@
-import { getPhishingWarningMessage } from 'shared/HtmlReady'; // the only allowable title attribute for a div
+import {
+    getPhishingWarningMessage,
+    getExternalLinkWarningMessage,
+} from 'shared/HtmlReady'; // the only allowable title attributes for div and a tags
 
 const iframeWhitelist = [
     {
@@ -32,6 +35,13 @@ const iframeWhitelist = [
                 '&auto_play=false&hide_related=false&show_comments=true' +
                 '&show_user=true&show_reposts=false&visual=true'
             );
+        },
+    },
+    {
+        re: /^(https?:)?\/\/player.twitch.tv\/.*/i,
+        fn: src => {
+            //<iframe src="https://player.twitch.tv/?channel=ninja" frameborder="0" allowfullscreen="true" scrolling="no" height="378" width="620">
+            return src;
         },
     },
 ];
@@ -75,8 +85,11 @@ export default ({
         // style is subject to attack, filtering more below
         td: ['style'],
         img: ['src', 'alt'],
-        a: ['href', 'rel'],
+
+        // title is only set in the case of an external link warning
+        a: ['href', 'rel', 'title'],
     },
+    allowedSchemes: ['http', 'https', 'steem'],
     transformTags: {
         iframe: (tagName, attribs) => {
             const srcAtty = attribs.src;
@@ -172,6 +185,7 @@ export default ({
             if (!href.match(/^(\/(?!\/)|https:\/\/steemit.com)/)) {
                 // attys.target = '_blank' // pending iframe impl https://mathiasbynens.github.io/rel-noopener/
                 attys.rel = highQualityPost ? 'noopener' : 'nofollow noopener';
+                attys.title = getExternalLinkWarningMessage();
             }
             return {
                 tagName,

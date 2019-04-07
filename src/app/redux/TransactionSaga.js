@@ -1,5 +1,4 @@
-import { takeEvery } from 'redux-saga';
-import { call, put, select } from 'redux-saga/effects';
+import { call, put, select, all, takeEvery } from 'redux-saga/effects';
 import { fromJS, Set, Map } from 'immutable';
 import tt from 'counterpart';
 import getSlug from 'speakingurl';
@@ -18,40 +17,25 @@ import { DEBT_TICKER } from 'app/client_config';
 import { serverApiRecordEvent } from 'app/utils/ServerApiClient';
 
 export const transactionWatches = [
-    watchForBroadcast,
-    watchForUpdateAuthorities,
-    watchForUpdateMeta,
-    watchForRecoverAccount,
+    takeEvery(transactionActions.BROADCAST_OPERATION, broadcastOperation),
+    takeEvery(transactionActions.UPDATE_AUTHORITIES, updateAuthorities),
+    takeEvery(transactionActions.UPDATE_META, updateMeta),
+    takeEvery(transactionActions.RECOVER_ACCOUNT, recoverAccount),
 ];
-
-export function* watchForBroadcast() {
-    yield* takeEvery(
-        transactionActions.BROADCAST_OPERATION,
-        broadcastOperation
-    );
-}
-export function* watchForUpdateAuthorities() {
-    yield* takeEvery(transactionActions.UPDATE_AUTHORITIES, updateAuthorities);
-}
-export function* watchForUpdateMeta() {
-    yield* takeEvery(transactionActions.UPDATE_META, updateMeta);
-}
-export function* watchForRecoverAccount() {
-    yield* takeEvery(transactionActions.RECOVER_ACCOUNT, recoverAccount);
-}
 
 const hook = {
     preBroadcast_comment,
     preBroadcast_transfer,
     preBroadcast_vote,
     preBroadcast_account_witness_vote,
-    preBroadcast_custom_json,
     error_vote,
     error_custom_json,
     // error_account_update,
     error_account_witness_vote,
     accepted_comment,
+    accepted_custom_json,
     accepted_delete_comment,
+    accepted_account_witness_vote,
     accepted_vote,
     accepted_account_update,
     accepted_withdraw_vesting,
@@ -100,66 +84,13 @@ function* preBroadcast_vote({ operation, username }) {
 function* preBroadcast_account_witness_vote({ operation, username }) {
     if (!operation.account) operation.account = username;
     const { account, witness, approve } = operation;
+    // give immediate feedback
     yield put(
-        globalActions.updateAccountWitnessVote({ account, witness, approve })
+        globalActions.addActiveWitnessVote({
+            account,
+            witness,
+        })
     );
-    return operation;
-}
-
-function* preBroadcast_custom_json({ operation }) {
-    const json = JSON.parse(operation.json);
-    if (operation.id === 'follow') {
-        try {
-            if (json[0] === 'follow') {
-                const { follower, following, what: [action] } = json[1];
-                yield put(
-                    globalActions.update({
-                        key: ['follow', 'getFollowingAsync', follower],
-                        notSet: Map(),
-                        updater: m => {
-                            //m = m.asMutable()
-                            if (action == null) {
-                                m = m.update('blog_result', Set(), r =>
-                                    r.delete(following)
-                                );
-                                m = m.update('ignore_result', Set(), r =>
-                                    r.delete(following)
-                                );
-                            } else if (action === 'blog') {
-                                m = m.update('blog_result', Set(), r =>
-                                    r.add(following)
-                                );
-                                m = m.update('ignore_result', Set(), r =>
-                                    r.delete(following)
-                                );
-                            } else if (action === 'ignore') {
-                                m = m.update('ignore_result', Set(), r =>
-                                    r.add(following)
-                                );
-                                m = m.update('blog_result', Set(), r =>
-                                    r.delete(following)
-                                );
-                            }
-                            m = m.set(
-                                'blog_count',
-                                m.get('blog_result', Set()).size
-                            );
-                            m = m.set(
-                                'ignore_count',
-                                m.get('ignore_result', Set()).size
-                            );
-                            return m; //.asImmutable()
-                        },
-                    })
-                );
-            }
-        } catch (e) {
-            console.error(
-                'TransactionSaga unrecognized follow custom_json format',
-                operation.json
-            );
-        }
-    }
     return operation;
 }
 
@@ -176,7 +107,7 @@ function* error_account_witness_vote({
 }
 
 /** Keys, username, and password are not needed for the initial call.  This will check the login and may trigger an action to prompt for the password / key. */
-function* broadcastOperation({
+export function* broadcastOperation({
     payload: {
         type,
         operation,
@@ -200,6 +131,7 @@ function* broadcastOperation({
         errorCallback,
         allowPostUnsafe,
     };
+    console.log('broadcastOperation', operationParam);
 
     const conf = typeof confirm === 'function' ? confirm() : confirm;
     if (conf) {
@@ -431,6 +363,48 @@ function* accepted_comment({ operation }) {
     // mark the time (can only post 1 per min)
     // yield put(user.actions.acceptedComment())
 }
+
+function updateFollowState(action, following, state) {
+    if (action == null) {
+        state = state.update('blog_result', Set(), r => r.delete(following));
+        state = state.update('ignore_result', Set(), r => r.delete(following));
+    } else if (action === 'blog') {
+        state = state.update('blog_result', Set(), r => r.add(following));
+        state = state.update('ignore_result', Set(), r => r.delete(following));
+    } else if (action === 'ignore') {
+        state = state.update('ignore_result', Set(), r => r.add(following));
+        state = state.update('blog_result', Set(), r => r.delete(following));
+    }
+    state = state.set('blog_count', state.get('blog_result', Set()).size);
+    state = state.set('ignore_count', state.get('ignore_result', Set()).size);
+    return state;
+}
+
+function* accepted_custom_json({ operation }) {
+    const json = JSON.parse(operation.json);
+    if (operation.id === 'follow') {
+        console.log(operation);
+        try {
+            if (json[0] === 'follow') {
+                const { follower, following, what: [action] } = json[1];
+                yield put(
+                    globalActions.update({
+                        key: ['follow', 'getFollowingAsync', follower],
+                        notSet: Map(),
+                        updater: m => updateFollowState(action, following, m),
+                    })
+                );
+            }
+        } catch (e) {
+            console.error(
+                'TransactionSaga unrecognized follow custom_json format',
+                operation.json
+            );
+        }
+    }
+    return operation;
+}
+
 function* accepted_delete_comment({ operation }) {
     yield put(globalActions.deleteContent(operation));
 }
@@ -450,6 +424,21 @@ function* accepted_vote({ operation: { author, permlink, weight } }) {
         })
     );
     yield call(getContent, { author, permlink });
+}
+
+function* accepted_account_witness_vote({
+    operation: { account, witness, approve },
+}) {
+    yield put(
+        globalActions.updateAccountWitnessVote({ account, witness, approve })
+    );
+
+    yield put(
+        globalActions.removeActiveWitnessVote({
+            account,
+            witness,
+        })
+    );
 }
 
 function* accepted_withdraw_vesting({ operation }) {
@@ -501,10 +490,7 @@ function* accepted_account_update({ operation }) {
 export function* preBroadcast_comment({ operation, username }) {
     if (!operation.author) operation.author = username;
     let permlink = operation.permlink;
-    const {
-        author,
-        __config: { originalBody, autoVote, comment_options },
-    } = operation;
+    const { author, __config: { originalBody, comment_options } } = operation;
     const {
         parent_author = '',
         parent_permlink = operation.category,
@@ -570,16 +556,6 @@ export function* preBroadcast_comment({ operation, username }) {
         ]);
     }
 
-    if (autoVote) {
-        const vote = {
-            voter: op.author,
-            author: op.author,
-            permlink: op.permlink,
-            weight: 10000,
-        };
-        comment_op.push(['vote', vote]);
-    }
-
     return comment_op;
 }
 
@@ -636,6 +612,7 @@ function* error_custom_json({ operation: { id, required_posting_auths } }) {
         );
     }
 }
+
 function* error_vote({ operation: { author, permlink } }) {
     yield put(
         globalActions.remove({
@@ -690,7 +667,7 @@ function slug(text) {
 const pwPubkey = (name, pw, role) =>
     auth.wifToPublic(auth.toWif(name, pw.trim(), role));
 
-function* recoverAccount({
+export function* recoverAccount({
     payload: {
         account_to_recover,
         old_password,
@@ -703,6 +680,7 @@ function* recoverAccount({
         [api, api.getAccountsAsync],
         [account_to_recover]
     );
+
     if (!account) {
         onError('Unknown account ' + account);
         return;
@@ -753,6 +731,7 @@ function* recoverAccount({
     };
 
     try {
+        // TODO: Investigate wrapping in a redux-saga call fn, so it can be tested!.
         yield broadcast.sendAsync(
             {
                 extensions: [],
@@ -773,6 +752,7 @@ function* recoverAccount({
         // change password
         // change password probably requires a separate transaction (single trx has not been tested)
         const { json_metadata } = account;
+        // TODO: Investigate wrapping in a redux-saga call fn, so it can be tested!
         yield broadcast.sendAsync(
             {
                 extensions: [],
@@ -799,6 +779,21 @@ function* recoverAccount({
             },
             [newOwnerPrivate]
         );
+        // Reset all outgoing auto-vesting routes for this user. Condenser - #2835
+        const outgoingAutoVestingRoutes = yield call(
+            [api, api.getWithdrawRoutes],
+            [account.name, 'outgoing']
+        );
+        if (outgoingAutoVestingRoutes && outgoingAutoVestingRoutes.length > 0) {
+            yield all(
+                outgoingAutoVestingRoutes.map(ovr => {
+                    return call(
+                        [broadcast, broadcast.setWithdrawVestingRoute],
+                        [newActive, ovr.from_account, ovr.to_account, 0, true]
+                    );
+                })
+            );
+        }
         if (onSuccess) onSuccess();
     } catch (error) {
         console.error('Recover account', error);
@@ -808,7 +803,7 @@ function* recoverAccount({
 
 /** auths must start with most powerful key: owner for example */
 // const twofaAccount = 'steem'
-function* updateAuthorities({
+export function* updateAuthorities({
     payload: { accountName, signingKey, auths, twofa, onSuccess, onError },
 }) {
     // Be sure this account is up-to-date (other required fields are sent in the update)
@@ -948,7 +943,7 @@ function* updateAuthorities({
 
 /** auths must start with most powerful key: owner for example */
 // const twofaAccount = 'steem'
-function* updateMeta(params) {
+export function* updateMeta(params) {
     // console.log('params', params)
     const {
         meta,

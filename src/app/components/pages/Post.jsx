@@ -1,12 +1,14 @@
 import React from 'react';
 // import ReactMarkdown from 'react-markdown';
+import PropTypes from 'prop-types';
 import Comment from 'app/components/cards/Comment';
 import PostFull from 'app/components/cards/PostFull';
 import { connect } from 'react-redux';
 
 import { sortComments } from 'app/components/cards/Comment';
 // import { Link } from 'react-router';
-import FoundationDropdownMenu from 'app/components/elements/FoundationDropdownMenu';
+import DropdownMenu from 'app/components/elements/DropdownMenu';
+import GptAd from 'app/components/elements/GptAd';
 import { Set } from 'immutable';
 import tt from 'counterpart';
 import shouldComponentUpdate from 'app/utils/shouldComponentUpdate';
@@ -18,11 +20,10 @@ import { isLoggedIn } from 'app/utils/UserUtil';
 
 class Post extends React.Component {
     static propTypes = {
-        content: React.PropTypes.object.isRequired,
-        post: React.PropTypes.string,
-        routeParams: React.PropTypes.object,
-        location: React.PropTypes.object,
-        signup_bonus: React.PropTypes.string,
+        content: PropTypes.object.isRequired,
+        post: PropTypes.string,
+        routeParams: PropTypes.object,
+        sortOrder: PropTypes.string,
     };
     constructor() {
         super();
@@ -33,7 +34,6 @@ class Post extends React.Component {
             serverApiRecordEvent('SignUp', 'Post Promo');
             window.location = SIGNUP_URL;
         };
-        this.shouldComponentUpdate = shouldComponentUpdate(this, 'Post');
     }
 
     toggleNegativeReplies = e => {
@@ -53,7 +53,7 @@ class Post extends React.Component {
 
     render() {
         const { showSignUp } = this;
-        const { signup_bonus, content } = this.props;
+        const { content, sortOrder } = this.props;
         const { showNegativeComments, commentHidden, showAnyway } = this.state;
         let post = this.props.post;
         if (!post) {
@@ -64,7 +64,10 @@ class Post extends React.Component {
 
         if (!dis) return null;
 
-        if (!showAnyway) {
+        // A post should be hidden if it is not pinned, is not told to "show
+        // anyway", and is designated "gray".
+        const pinned = dis.get('pinned');
+        if (!pinned && !showAnyway) {
             const { gray } = dis.get('stats').toJS();
             if (gray) {
                 return (
@@ -94,11 +97,7 @@ class Post extends React.Component {
 
         let replies = dis.get('replies').toJS();
 
-        let sort_order = 'trending';
-        if (this.props.location && this.props.location.query.sort)
-            sort_order = this.props.location.query.sort;
-
-        sortComments(content, replies, sort_order);
+        sortComments(content, replies, sortOrder);
 
         // Don't render too many comments on server-side
         const commentLimit = 100;
@@ -115,7 +114,7 @@ class Post extends React.Component {
                 key={post + reply}
                 content={reply}
                 cont={content}
-                sort_order={sort_order}
+                sort_order={sortOrder}
                 showNegativeComments={showNegativeComments}
                 onHide={this.onHideComment}
             />
@@ -139,18 +138,18 @@ class Post extends React.Component {
             </div>
         );
 
-        let sort_orders = ['trending', 'votes', 'new'];
+        let sort_orders = ['trending', 'votes', 'new', 'author_reputation'];
         let sort_labels = [
-            tt('main_menu.trending'),
-            tt('g.votes'),
-            tt('g.age'),
+            tt('post_jsx.comment_sort_order.trending'),
+            tt('post_jsx.comment_sort_order.votes'),
+            tt('post_jsx.comment_sort_order.age'),
+            tt('post_jsx.comment_sort_order.reputation'),
         ];
         let sort_menu = [];
         let sort_label;
-
         let selflink = `/${dis.get('category')}/@${post}`;
         for (let o = 0; o < sort_orders.length; ++o) {
-            if (sort_orders[o] == sort_order) sort_label = sort_labels[o];
+            if (sort_orders[o] == sortOrder) sort_label = sort_labels[o];
             sort_menu.push({
                 value: sort_orders[o],
                 label: sort_labels[o],
@@ -212,11 +211,7 @@ class Post extends React.Component {
                                 )}.
                                 <br />
                                 {tt(
-                                    'g.next_7_strings_single_block.if_you_enjoyed_what_you_read_earn_amount',
-                                    {
-                                        amount: '$' + signup_bonus.substring(1),
-                                        INVEST_TOKEN_UPPERCASE,
-                                    }
+                                    'g.next_7_strings_single_block.if_you_enjoyed_what_you_read_earn_amount'
                                 )}
                                 <br />
                                 <button
@@ -236,11 +231,11 @@ class Post extends React.Component {
                             {positiveComments.length ? (
                                 <div className="Post__comments_sort_order float-right">
                                     {tt('post_jsx.sort_order')}: &nbsp;
-                                    <FoundationDropdownMenu
-                                        menu={sort_menu}
-                                        label={sort_label}
-                                        dropdownPosition="bottom"
-                                        dropdownAlignment="right"
+                                    <DropdownMenu
+                                        items={sort_menu}
+                                        el="li"
+                                        selected={sort_label}
+                                        position="left"
                                     />
                                 </div>
                             ) : null}
@@ -249,6 +244,14 @@ class Post extends React.Component {
                         </div>
                     </div>
                 </div>
+                {this.props.gptSlots ? (
+                    <div className="Post_footer__ad">
+                        <GptAd
+                            slot={this.props.gptSlots['bottom_post']['slot_id']}
+                            args={this.props.gptSlots['bottom_post']['args']}
+                        />
+                    </div>
+                ) : null}
             </div>
         );
     }
@@ -256,7 +259,7 @@ class Post extends React.Component {
 
 const emptySet = Set();
 
-export default connect(state => {
+export default connect((state, ownProps) => {
     const current_user = state.user.get('current');
     let ignoring;
     if (current_user) {
@@ -270,7 +273,9 @@ export default connect(state => {
     }
     return {
         content: state.global.get('content'),
-        signup_bonus: state.offchain.get('signup_bonus'),
         ignoring,
+        sortOrder:
+            ownProps.router.getCurrentLocation().query.sort || 'trending',
+        gptSlots: state.app.getIn(['googleAds', 'gptSlots']).toJS(),
     };
 })(Post);
